@@ -1,7 +1,7 @@
 # MultiInstaller
 
 This is the [Silverpoint MultiInstaller](http://www.silverpointdevelopment.com/multiinstaller/index.htm) on steroids.
-It allows you to install multiple Delpi packages directly from Git repositories (eg. Github), from zip files or 
+It allows you to install multiple Delpi packages directly from git repositories (e.g. Github), from zip files or 
 from existing folders in one-step.
 
 **Documentation**  
