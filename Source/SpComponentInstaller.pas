@@ -157,27 +157,28 @@ resourcestring
   SLogFinished = 'All the component packages have been successfully installed.' + #13#10 + 'Elapsed time: %f secs.';
 
 type
-  TSpIDEType = (     // [IDE-Change-Update]
-    ideNone,         //
-    ideDelphi7,      // D7
-    ideDelphi2005,   // D9
-    ideDelphi2006,   // D10
-    ideDelphi2007,   // D11
-    ideDelphi2009,   // D12
-    ideDelphi2010,   // D14
-    ideDelphiXE,     // D15
-    ideDelphiXE2,    // D16
-    ideDelphiXE3,    // D17
-    ideDelphiXE4,    // D18
-    ideDelphiXE5,    // D19
-    ideDelphiXE6,    // D20
-    ideDelphiXE7,    // D21
-    ideDelphiXE8,    // D22
-    ideDelphiSeattle,// D23
-    ideDelphiBerlin, // D24
-    ideDelphiTokyo,  // D25
-    ideDelphiRio,     // D26
-    ideDelphiDenali  // D27
+  TSpIDEType = (        // [IDE-Change-Update]
+    ideNone,            //
+    ideDelphi7,         // D7
+    ideDelphi2005,      // D9
+    ideDelphi2006,      // D10
+    ideDelphi2007,      // D11
+    ideDelphi2009,      // D12
+    ideDelphi2010,      // D14
+    ideDelphiXE,        // D15
+    ideDelphiXE2,       // D16
+    ideDelphiXE3,       // D17
+    ideDelphiXE4,       // D18
+    ideDelphiXE5,       // D19
+    ideDelphiXE6,       // D20
+    ideDelphiXE7,       // D21
+    ideDelphiXE8,       // D22
+    ideDelphiSeattle,   // D23
+    ideDelphiBerlin,    // D24
+    ideDelphiTokyo,     // D25
+    ideDelphiRio,       // D26
+    ideDelphiDenali,     // D27
+    ideDelphiAlexandria // D27
   );
 
   TSpPlatform = (
@@ -214,7 +215,8 @@ const
     (IDEVersion: 'D24'; IDEName: 'RAD Studio 10.1 Berlin'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\18.0'; IDERADStudioVersion: '18.0'),
     (IDEVersion: 'D25'; IDEName: 'RAD Studio 10.2 Tokyo'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\19.0'; IDERADStudioVersion: '19.0'),
     (IDEVersion: 'D26'; IDEName: 'RAD Studio 10.3 Rio'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\20.0'; IDERADStudioVersion: '20.0'),
-    (IDEVersion: 'D27'; IDEName: 'RAD Studio 10.4 Denali'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\21.0'; IDERADStudioVersion: '21.0')
+    (IDEVersion: 'D27'; IDEName: 'RAD Studio 10.4 Denali'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\21.0'; IDERADStudioVersion: '21.0'),
+    (IDEVersion: 'D28'; IDEName: 'RAD Studio 11 Alexandria'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\22.0'; IDERADStudioVersion: '22.0')
   );
 
 type
