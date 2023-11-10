@@ -177,8 +177,9 @@ type
     ideDelphiBerlin,    // D24
     ideDelphiTokyo,     // D25
     ideDelphiRio,       // D26
-    ideDelphiDenali,     // D27
-    ideDelphiAlexandria // D27
+    ideDelphiDenali,    // D27
+    ideDelphiAlexandria,// D28
+    ideDelphiAthens     // D29
   );
 
   TSpPlatform = (
@@ -216,7 +217,8 @@ const
     (IDEVersion: 'D25'; IDEName: 'RAD Studio 10.2 Tokyo'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\19.0'; IDERADStudioVersion: '19.0'),
     (IDEVersion: 'D26'; IDEName: 'RAD Studio 10.3 Rio'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\20.0'; IDERADStudioVersion: '20.0'),
     (IDEVersion: 'D27'; IDEName: 'RAD Studio 10.4 Denali'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\21.0'; IDERADStudioVersion: '21.0'),
-    (IDEVersion: 'D28'; IDEName: 'RAD Studio 11 Alexandria'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\22.0'; IDERADStudioVersion: '22.0')
+    (IDEVersion: 'D28'; IDEName: 'RAD Studio 11 Alexandria'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\22.0'; IDERADStudioVersion: '22.0'),
+    (IDEVersion: 'D29'; IDEName: 'RAD Studio 12 Athens'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\23.0'; IDERADStudioVersion: '23.0')
   );
 
 type
