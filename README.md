@@ -23,6 +23,8 @@ with the notes below.
   directory as the MultiInstaller executable.
 * *SearchPath* folders are also added to the Win64 Library search path.
 * The Delphi search path (-U dcc32 flag) is also used as the include search path (-I dcc32 flag) during package compilation.
+* Compiles runtime packages to both Win32 and Win64 targets **NEW**
+* Starting from Delphi 13, it also installs packages in the 64-bit IDE. **NEW**
 
 **Example Setup.ini:**
 *  See [PyScripter's Setup.ini](https://github.com/pyscripter/pyscripter/blob/master/Components/ThirdParty/Setup.ini).

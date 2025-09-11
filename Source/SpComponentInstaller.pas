@@ -307,7 +307,7 @@ function SpStringToActionType(S: string): TSpActionType;
 function SpStringToIDEType(S: string): TSpIDEType;
 procedure SpIDEPersonalityTypeToString(A: TSpIDEPersonality; out IDERegName: string);
 function SpIDEDir(IDE: TSpIDEType): string;
-function SpIDEDCC32Path(IDE: TSpIDEType): string;
+function SpIDEDCCPath(IDE: TSpIDEType; APlatform: TSpPlatform = pltWin32): string;
 function SpIDEInstalled(IDE: TSpIDEType): Boolean;
 function SpIDEPersonalityInstalled(IDE: TSpIDEType; IDEPersonality: TSpIDEPersonality): Boolean;
 function SpIDESearchPath(IDE: TSpIDEType; CPPBuilderPath: Boolean; APlatform: TSpPlatform = pltWin32): string;
@@ -315,12 +315,16 @@ procedure SpIDEAddToSearchPath(SourcesL: TStrings; IDE: TSpIDEType);
 function SpIDEBDSCommonDir(IDE: TSpIDEType): string;
 function SpIDEBDSProjectsDir(IDE: TSpIDEType): string;
 function SpIDEGetEnvironmentVars(IDE: TSpIDEType; IDEEnvVars: TStringList): Boolean;
-function SpIDEExpandMacros(S: string; IDE: TSpIDEType): string;
+function SpIDEExpandMacros(S: string; IDE: TSpIDEType;
+  APlatform: TSpPlatform = pltWin32): string;
 
 { Delphi Packages }
 function SpGetPackageOptions(PackageFilename, LibSuffix, BPLDir: string; out RunTime, DesignTime: Boolean; out BPLFilename, Description: string): Boolean;
-function SpCompilePackage(PackageFilename, DCC: string; IDE: TSpIDEType; SourcesL, IncludesL, Log: TStrings; LibSuffix: string; TempDir: string = ''): Boolean;
-function SpRegisterPackage(PackageFilename, LibSuffix, BPLDir: string; IDE: TSpIDEType; Log: TStrings): Boolean;
+function SpCompilePackage(PackageFilename: string; IDE: TSpIDEType; SourcesL,
+    IncludesL, Log: TStrings; LibSuffix: string; TempDir: string = '';
+    APlatform: TSpPlatform = pltWin32): Boolean;
+function SpRegisterPackage(PackageFilename, LibSuffix, BPLDir: string; IDE:
+    TSpIDEType; Log: TStrings; APlatform: TSpPlatform = pltWin32): Boolean;
 
 implementation
 
@@ -890,11 +894,13 @@ begin
   SpReadRegValue(IDETypes[IDE].IDERegistryPath, 'RootDir', Result);
 end;
 
-function SpIDEDCC32Path(IDE: TSpIDEType): string;
+function SpIDEDCCPath(IDE: TSpIDEType; APlatform: TSpPlatform = pltWin32):
+    string;
 begin
   SpReadRegValue(IDETypes[IDE].IDERegistryPath, 'App', Result);
   if Result <> '' then
-    Result := IncludeTrailingPathDelimiter(ExtractFilePath(Result)) + 'dcc32.exe';
+    Result := IncludeTrailingPathDelimiter(ExtractFilePath(Result)) +
+      IfThen(APlatform = pltWin32, 'dcc32.exe', 'dcc64.exe');
 end;
 
 function SpIDEInstalled(IDE: TSpIDEType): Boolean;
@@ -902,7 +908,7 @@ begin
   if IDE = ideNone then
     Result := False
   else
-    Result := FileExists(SpIDEDCC32Path(IDE));
+    Result := FileExists(SpIDEDCCPath(IDE));
 end;
 
 function SpIDEPersonalityInstalled(IDE: TSpIDEType; IDEPersonality: TSpIDEPersonality): Boolean;
@@ -1086,7 +1092,8 @@ begin
   Result := SpReadRegKey(IDETypes[IDE].IDERegistryPath + '\Environment Variables', IDEEnvVars);
 end;
 
-function SpIDEExpandMacros(S: string; IDE: TSpIDEType): string;
+function SpIDEExpandMacros(S: string; IDE: TSpIDEType; APlatform: TSpPlatform =
+    pltWin32): string;
 // Replace $(Delphi), $(BDS), $(BDSPROJECTSDIR) macros and
 // IDE Environment Variables Overrides with real directories
 var
@@ -1117,6 +1124,8 @@ begin
     BDSCommonDir := SpIDEBDSCommonDir(IDE);
     if BDSCommonDir <> '' then
       L.Values['BDSCOMMONDIR'] := BDSCommonDir;
+
+    L.Values['PLATFORM'] := IfThen(APlatform = pltWin32, 'win32', 'win64');
 
     // Replace all
     for I := 0 to L.Count - 1 do
@@ -1208,21 +1217,22 @@ begin
   end;
 end;
 
-function SpCompilePackage(PackageFilename, DCC: string; IDE: TSpIDEType;
-  SourcesL, IncludesL, Log: TStrings; LibSuffix: string; TempDir: string = ''): Boolean;
+function SpCompilePackage(PackageFilename: string; IDE: TSpIDEType;
+    SourcesL, IncludesL, Log: TStrings; LibSuffix: string; TempDir: string =
+    ''; APlatform: TSpPlatform = pltWin32): Boolean;
 // PackageFilename = full path of the package, e.g. 'C:\MyCompos\Compo\Packages\D7Runtime.dpk
-// DCC = full path of dcc32.exe, e.g. 'C:\Program Files\Borland\Delphi7\Bin\dcc32.exe
 // IDE = IDE version to compile with
-// Install = True if the package is DesignTime only, otherwise False.
 // SourcesL = list of source folders of the component package to add to the Library Search Path
 // IncludesL = list of includes folder paths, e.g. 'C:\MyCompos\AnotherCompo\Source'
 // Log = Log strings
 // TempDir = Temp dir where the package dcu will be copied, e.g. 'C:\Windows\Temp\MyCompos'
+// APlatform = the target platform
+
 var
   CommandLine, WorkDir, BPLDir, DOSOutput, DCCConfig: string;
   L: TStringList;
   I: Integer;
-  S, R: string; // Auxiliary strings
+  DCC, S, R: string; // Auxiliary strings
   EmptyRes, ResFile : string;
 begin
   Result := False;
@@ -1231,112 +1241,119 @@ begin
     if Assigned(Log) then
       SpWriteLog(Log, SLogInvalidPath, PackageFilename);
     Exit;
-  end
-  else begin
+  end;
+
+  WorkDir := ExtractFilePath(PackageFilename);
+
+  L := TStringList.Create;
+  try
+    // Add the SourcesL directories to the registry
+    SpIDEAddToSearchPath(SourcesL, IDE);
+
+    // Expand SearchPath, replace $(Delphi) and $(BDS) with real directories
+    // and enclose the paths with " " to transform it to a valid
+    // comma delimited string for the -U switch.
+    L.Text := SpIDEExpandMacros(SpIDESearchPath(IDE, False), IDE, APlatform);
+    L.Text := StringReplace(L.Text, ';', #13#10, [rfReplaceAll, rfIgnoreCase]);
+    for I := 0 to L.Count - 1 do
+      L[I] := '"' + L[I] + '"';
+    S := StringReplace(L.Text, #13#10, ';', [rfReplaceAll, rfIgnoreCase]);
+    if S[Length(S)] = ';' then
+      Delete(S, Length(S), 1);
+
+    // Save the DCC32.CFG file on the Package directory
+    DCCConfig := IncludeTrailingPathDelimiter(WorkDir) +
+      IfThen(APlatform = pltWin32, 'DCC32.CFG', 'DCC64.CFG');
+    R := IDETypes[IDE].IDERegistryPath;
+    L.Clear;
+    // SearchPath
+    L.Add('-U' + S);
+    // IncludePath
+    L.Add('-I' + S);
+    // Resource directories, add the source folder as the default *.dcr search folder
+    S := '';
+    for I := 0 to SourcesL.Count - 1 do
+      S := S + ';' + SourcesL[I];
+    if S <> '' then begin
+      Delete(S, 1, 1);
+      S := '"' + S + '"';
+      L.Add('-R' + S);
+    end;
+    // BPL Output
+    SpReadRegValue(R + '\Library\Win' + IfThen(APlatform = pltWin32, '32', '64'),
+      'Package DPL Output', S);
+    S := SpIDEExpandMacros(S, IDE, APlatform);
+    L.Add('-LE"' + S + '"');
+    ForceDirectories(S);
+    BPLDir := IncludeTrailingPathDelimiter(S);
+    // DCP Output
+    SpReadRegValue(R + '\Library\Win' + IfThen(APlatform = pltWin32, '32', '64'),
+      'Package DCP Output', S);
+    S := SpIDEExpandMacros(S, IDE, APlatform);
+    ForceDirectories(S);
+    L.Add('-LN"' + S + '"');
+    // BPI Output for the compiled packages, required for C++Builder 2006 and above
+    L.Add('-NB"' + S + '"');
+    // Unit namespaces for Delphi XE2:
+    L.Add('-NSSystem.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;Winapi');
+    // Includes, dcc32.exe accepts Includes as a semicolon separated string
+    // enclosed by double quotes, e.g. "C:\dir1;C:\dir2;C:\dir3"
+    S := '';
+    for I := 0 to IncludesL.Count - 1 do
+      S := S + ';' + IncludesL[I];
+    if S <> '' then begin
+      Delete(S, 1, 1);
+      S := '"' + S + '"';
+      L.Add('-I' + S);
+    end;
+    // DCU Output for the compiled packages
+    if TempDir <> '' then
+      L.Add('-N"' + TempDir + '"');
+    // Add -JL compiler switch to make Hpp files required for C++Builder 2006 and above
+    // This switch is undocumented:
+    // http://groups.google.com/group/borland.public.cppbuilder.ide/browse_thread/thread/456bece4c5665459/0c4c61ecec179ca8
+    if SpIDEPersonalityInstalled(IDE, persCPPBuilder) then
+      L.Add('-JL');
+
+    L.SaveToFile(DCCConfig);
+  finally
+    L.Free;
+  end;
+  // Check res file exists
+  ResFile := ChangeFileExt(PackageFilename, '.res');
+  if not FileExists(ResFile) then begin
+    EmptyRes := ExtractFilePath(Application.ExeName) + 'empty.res';
+    if not SpFileOperation(EmptyRes, ResFile, FO_COPY) then  begin
+      SpWriteLog(Log, SLogErrorCopying, EmptyRes, ResFile);
+      Exit;
+    end;
+  end;
+
+  // Compile
+  SpWriteLog(Log, SLogCompiling, PackageFilename);
+  try
     // [IDE Bug]: dcc32.exe won't execute if -Q option is not used
     // But it works fine without -Q if ShellExecute is used:
     // ShellExecute(Application.Handle, 'open', DCC, ExtractFileName(PackageFilename), ExtractFilePath(PackageFilename), SW_SHOWNORMAL);
     // There must be something wrong with SpExecuteDosCommand
+    DCC := SpIDEDCCPath(IDE, APlatform);
     CommandLine := DCC + ' -Q  ' + ExtractFileName(PackageFilename);
-    WorkDir := ExtractFilePath(PackageFilename);
-
-    L := TStringList.Create;
-    try
-      // Add the SourcesL directories to the registry
-      SpIDEAddToSearchPath(SourcesL, IDE);
-
-      // Expand SearchPath, replace $(Delphi) and $(BDS) with real directories
-      // and enclose the paths with " " to transform it to a valid
-      // comma delimited string for the -U switch.
-      L.Text := SpIDEExpandMacros(SpIDESearchPath(IDE, False), IDE);
-      L.Text := StringReplace(L.Text, ';', #13#10, [rfReplaceAll, rfIgnoreCase]);
-      for I := 0 to L.Count - 1 do
-        L[I] := '"' + L[I] + '"';
-      S := StringReplace(L.Text, #13#10, ';', [rfReplaceAll, rfIgnoreCase]);
-      if S[Length(S)] = ';' then
-        Delete(S, Length(S), 1);
-
-      // Save the DCC32.CFG file on the Package directory
-      DCCConfig := IncludeTrailingPathDelimiter(WorkDir) + 'DCC32.CFG';
-      R := IDETypes[IDE].IDERegistryPath;
-      L.Clear;
-      // SearchPath
-      L.Add('-U' + S);
-      // IncludePath
-      L.Add('-I' + S);
-      // Resource directories, add the source folder as the default *.dcr search folder
-      S := '';
-      for I := 0 to SourcesL.Count - 1 do
-        S := S + ';' + SourcesL[I];
-      if S <> '' then begin
-        Delete(S, 1, 1);
-        S := '"' + S + '"';
-        L.Add('-R' + S);
-      end;
-      // BPL Output
-      SpReadRegValue(R + '\Library\Win32', 'Package DPL Output', S);
-      S := SpIDEExpandMacros(S, IDE);
-      L.Add('-LE"' + S + '"');
-      BPLDir := IncludeTrailingPathDelimiter(S);
-      // DCP Output
-      SpReadRegValue(R + '\Library\Win32', 'Package DCP Output', S);
-      S := SpIDEExpandMacros(S, IDE);
-      L.Add('-LN"' + S + '"');
-      // BPI Output for the compiled packages, required for C++Builder 2006 and above
-      L.Add('-NB"' + S + '"');
-      // Unit namespaces for Delphi XE2:
-      L.Add('-NSSystem.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;Winapi');
-      // Includes, dcc32.exe accepts Includes as a semicolon separated string
-      // enclosed by double quotes, e.g. "C:\dir1;C:\dir2;C:\dir3"
-      S := '';
-      for I := 0 to IncludesL.Count - 1 do
-        S := S + ';' + IncludesL[I];
-      if S <> '' then begin
-        Delete(S, 1, 1);
-        S := '"' + S + '"';
-        L.Add('-I' + S);
-      end;
-      // DCU Output for the compiled packages
-      if TempDir <> '' then
-        L.Add('-N"' + TempDir + '"');
-      // Add -JL compiler switch to make Hpp files required for C++Builder 2006 and above
-      // This switch is undocumented:
-      // http://groups.google.com/group/borland.public.cppbuilder.ide/browse_thread/thread/456bece4c5665459/0c4c61ecec179ca8
-      if SpIDEPersonalityInstalled(IDE, persCPPBuilder) then
-        L.Add('-JL');
-
-      L.SaveToFile(DCCConfig);
-    finally
-      L.Free;
-    end;
-    // Check res file exists
-    ResFile := ChangeFileExt(PackageFilename, '.res');
-    if not FileExists(ResFile) then begin
-      EmptyRes := ExtractFilePath(Application.ExeName) + 'empty.res';
-      if not SpFileOperation(EmptyRes, ResFile, FO_COPY) then  begin
-        SpWriteLog(Log, SLogErrorCopying, EmptyRes, ResFile);
-        Exit;
-      end;
-    end;
-
-    // Compile
-    SpWriteLog(Log, SLogCompiling, PackageFilename);
-    try
-      Result := SpExecuteDosCommand(CommandLine, WorkDir, DOSOutput) = 0;
-      if Assigned(Log) then
-        Log.Text := Log.Text + DosOutput + #13#10;
-      if Result then
-        Result := SpRegisterPackage(PackageFilename, LibSuffix, BPLDir, IDE, Log);
-    finally
-      DeleteFile(DCCConfig);
-    end;
+    Result := SpExecuteDosCommand(CommandLine, WorkDir, DOSOutput) = 0;
+    if Assigned(Log) then
+      Log.Text := Log.Text + DosOutput + #13#10;
+    if Result then
+      Result := SpRegisterPackage(PackageFilename, LibSuffix, BPLDir, IDE, Log,
+        APlatform);
+  finally
+    DeleteFile(DCCConfig);
   end;
 
   if not Result and Assigned(Log) then
     SpWriteLog(Log, SLogErrorCompiling, PackageFilename, '');
 end;
 
-function SpRegisterPackage(PackageFilename, LibSuffix, BPLDir: string; IDE: TSpIDEType; Log: TStrings): Boolean;
+function SpRegisterPackage(PackageFilename, LibSuffix, BPLDir: string; IDE:
+    TSpIDEType; Log: TStrings; APlatform: TSpPlatform = pltWin32): Boolean;
 var
   RunTime, DesignTime: Boolean;
   BPLFilename, Description, RegKey: string;
@@ -1347,14 +1364,17 @@ begin
   BPLDir := IncludeTrailingPathDelimiter(BPLDir);
   SpGetPackageOptions(PackageFilename, LibSuffix, BPLDir, RunTime, DesignTime, BPLFilename, Description);
 
-  RegKey := IDETypes[IDE].IDERegistryPath + '\Known Packages';
+  RegKey := IDETypes[IDE].IDERegistryPath + '\Known Packages' +
+    IfThen(APlatform = pltWin32, '', ' x64');
 
   if RunTime then begin
     SpDeleteRegValue(RegKey, BPLFilename);
     Result := True
   end
   else begin
-    if FileExists(BPLFilename) then begin
+    if FileExists(BPLFilename) and ((APlatform = pltWin32) or
+      (IDE >= ideDelphiFlorence)) then
+    begin
       if SpWriteRegValue(RegKey, BPLFilename, Description) then begin
         SpWriteLog(Log, SLogInstalling, PackageFilename);
         Result := True;
@@ -1535,7 +1555,7 @@ end;
 
 function TSpComponentPackageList.CompileAll(BaseFolder: string; IDE: TSpIDEType; Log: TStrings): Boolean;
 var
-  DCC, TempDir: string;
+  TempDir: string;
   I, J: integer;
   Item: TSpComponentPackage;
   SourcesL, CompileL, IncludesL: TStringList;
@@ -1558,7 +1578,6 @@ begin
   TempDir := IncludeTrailingPathDelimiter(TempDir) + 'SpMultiInstall';
   CreateDir(TempDir);
 
-  DCC := SpIDEDCC32Path(IDE);
   CompileL := TStringList.Create;
   IncludesL := TStringList.Create;
   SourcesL := TStringList.Create;
@@ -1610,8 +1629,22 @@ begin
 
         // Compile and Install
         for J := 0 to CompileL.Count - 1 do
-          if not SpCompilePackage(CompileL[J], DCC, IDE, SourcesL, IncludesL, Log, LibSuffix, TempDir) then
+        begin
+          if not SpCompilePackage(CompileL[J], IDE, SourcesL, IncludesL, Log,
+            LibSuffix, TempDir, pltWin32)
+          then
             Exit;
+
+          // Compile Run time packages for Win64
+          // Starting from Delphi 13 compile also design packages
+          if not SpIsDesignTimePackage(CompileL[J]) or (IDE >= ideDelphiFlorence) then
+          begin
+            if not SpCompilePackage(CompileL[J], IDE, SourcesL, IncludesL, Log,
+              LibSuffix, TempDir, pltWin64)
+            then
+              Exit;
+          end;
+        end;
       end
       else
         if Item.Installable = sitSearchPathOnly then begin

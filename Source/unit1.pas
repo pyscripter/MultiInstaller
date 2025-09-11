@@ -343,9 +343,9 @@ procedure TForm1.CloseDelphi;
 var
   Cancel: Boolean;
 begin
-  {.$IFDEF SPDEBUGMODE}
+  {$IFDEF SPDEBUGMODE}
   Exit;
-  {.$ENDIF}
+  {$ENDIF}
 
   Cancel := False;
   while not Cancel and ((FindWindow('TAppBuilder', nil) <> 0) or (FindWindow('TAppBuilder', nil) <> 0)) do
