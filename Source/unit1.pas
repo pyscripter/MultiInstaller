@@ -343,9 +343,9 @@ procedure TForm1.CloseDelphi;
 var
   Cancel: Boolean;
 begin
-  {$IFDEF SPDEBUGMODE}
+  {.$IFDEF SPDEBUGMODE}
   Exit;
-  {$ENDIF}
+  {.$ENDIF}
 
   Cancel := False;
   while not Cancel and ((FindWindow('TAppBuilder', nil) <> 0) or (FindWindow('TAppBuilder', nil) <> 0)) do
@@ -368,12 +368,11 @@ begin
     IDE := TSpIDEType(RadioGroup1.Items.Objects[I]);
     // Try to detect BDS Project Dir
     // BDS doesn't define $(BDSPROJECTSDIR) in the registry we have to detect it
-    if IDE > ideDelphi7 then
-      if SpIDEBDSProjectsDir(IDE) = '' then begin
-        MessageDlg(SErrorDetectingBDSPROJECTSDIR, mtError, [mbOK], 0);
-        Close;
-        Exit;
-      end;
+    if SpIDEBDSProjectsDir(IDE) = '' then begin
+      MessageDlg(SErrorDetectingBDSPROJECTSDIR, mtError, [mbOK], 0);
+      Close;
+      Exit;
+    end;
   end;
 
   // Delete unchecked components from the ComponentPackages list

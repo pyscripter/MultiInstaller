@@ -11,12 +11,10 @@ object Form1: TForm1
   Font.Height = -11
   Font.Name = 'MS Shell Dlg 2'
   Font.Style = []
-  OldCreateOrder = False
   Position = poScreenCenter
   OnCreate = FormCreate
   OnDestroy = FormDestroy
   OnShow = FormShow
-  PixelsPerInch = 96
   TextHeight = 13
   object PageControl1: TPageControl
     Left = 0
@@ -42,9 +40,9 @@ object Form1: TForm1
         Top = 24
         Width = 473
         Height = 227
-        OnClickCheck = CheckListBox1ClickCheck
         Style = lbOwnerDrawVariable
         TabOrder = 0
+        OnClickCheck = CheckListBox1ClickCheck
         OnDrawItem = CheckListBox1DrawItem
         OnMeasureItem = CheckListBox1MeasureItem
       end
@@ -53,10 +51,6 @@ object Form1: TForm1
       Caption = 'TabSheet2'
       ImageIndex = 1
       TabVisible = False
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Label2: TLabel
         Left = 8
         Top = 16
@@ -105,10 +99,6 @@ object Form1: TForm1
       Caption = 'TabSheet3'
       ImageIndex = 2
       TabVisible = False
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
       object Label3: TLabel
         Left = 8
         Top = 8

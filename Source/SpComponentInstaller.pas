@@ -159,13 +159,6 @@ resourcestring
 type
   TSpIDEType = (        // [IDE-Change-Update]
     ideNone,            //
-    ideDelphi7,         // D7
-    ideDelphi2005,      // D9
-    ideDelphi2006,      // D10
-    ideDelphi2007,      // D11
-    ideDelphi2009,      // D12
-    ideDelphi2010,      // D14
-    ideDelphiXE,        // D15
     ideDelphiXE2,       // D16
     ideDelphiXE3,       // D17
     ideDelphiXE4,       // D18
@@ -179,7 +172,8 @@ type
     ideDelphiRio,       // D26
     ideDelphiDenali,    // D27
     ideDelphiAlexandria,// D28
-    ideDelphiAthens     // D29
+    ideDelphiAthens,    // D29
+    ideDelphiFlorence   // D37
   );
 
   TSpPlatform = (
@@ -198,13 +192,6 @@ const
   // [IDE-Change-Update]
   IDETypes: array [TSpIDEType] of TSpIDETypeRec = (
     (IDEVersion: 'None'; IDEName: 'None'; IDERegistryPath: 'None'; IDERADStudioVersion: ''),
-    (IDEVersion: 'D7'; IDEName: 'Delphi 7'; IDERegistryPath: 'SOFTWARE\Borland\Delphi\7.0'; IDERADStudioVersion: ''),
-    (IDEVersion: 'D9'; IDEName: 'Delphi 2005'; IDERegistryPath: 'SOFTWARE\Borland\BDS\3.0'; IDERADStudioVersion: '3.0'),
-    (IDEVersion: 'D10'; IDEName: 'Developer Studio 2006'; IDERegistryPath: 'SOFTWARE\Borland\BDS\4.0'; IDERADStudioVersion: '4.0'),
-    (IDEVersion: 'D11'; IDEName: 'RAD Studio 2007'; IDERegistryPath: 'SOFTWARE\Borland\BDS\5.0'; IDERADStudioVersion: '5.0'),
-    (IDEVersion: 'D12'; IDEName: 'RAD Studio 2009'; IDERegistryPath: 'SOFTWARE\CodeGear\BDS\6.0'; IDERADStudioVersion: '6.0'),
-    (IDEVersion: 'D14'; IDEName: 'RAD Studio 2010'; IDERegistryPath: 'SOFTWARE\CodeGear\BDS\7.0'; IDERADStudioVersion: '7.0'),
-    (IDEVersion: 'D15'; IDEName: 'RAD Studio XE';  IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\8.0'; IDERADStudioVersion: '8.0'),
     (IDEVersion: 'D16'; IDEName: 'RAD Studio XE2'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\9.0'; IDERADStudioVersion: '9.0'),
     (IDEVersion: 'D17'; IDEName: 'RAD Studio XE3'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\10.0'; IDERADStudioVersion: '10.0'),
     (IDEVersion: 'D18'; IDEName: 'RAD Studio XE4'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\11.0'; IDERADStudioVersion: '11.0'),
@@ -218,7 +205,8 @@ const
     (IDEVersion: 'D26'; IDEName: 'RAD Studio 10.3 Rio'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\20.0'; IDERADStudioVersion: '20.0'),
     (IDEVersion: 'D27'; IDEName: 'RAD Studio 10.4 Denali'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\21.0'; IDERADStudioVersion: '21.0'),
     (IDEVersion: 'D28'; IDEName: 'RAD Studio 11 Alexandria'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\22.0'; IDERADStudioVersion: '22.0'),
-    (IDEVersion: 'D29'; IDEName: 'RAD Studio 12 Athens'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\23.0'; IDERADStudioVersion: '23.0')
+    (IDEVersion: 'D29'; IDEName: 'RAD Studio 12 Athens'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\23.0'; IDERADStudioVersion: '23.0'),
+    (IDEVersion: 'D37'; IDEName: 'RAD Studio 13 Florence'; IDERegistryPath: 'SOFTWARE\Embarcadero\BDS\37.0'; IDERADStudioVersion: '37.0')
   );
 
 type
@@ -927,12 +915,10 @@ begin
   S := '';
   PersReg := '';
 
-  if IDE >= ideDelphi2006 then begin
-    SpIDEPersonalityTypeToString(IDEPersonality, PersReg);
-    SpReadRegValue(IDETypes[IDE].IDERegistryPath + '\Personalities',  PersReg, S);
-    if S <> ''then
-      Result := True;
-  end;
+  SpIDEPersonalityTypeToString(IDEPersonality, PersReg);
+  SpReadRegValue(IDETypes[IDE].IDERegistryPath + '\Personalities',  PersReg, S);
+  if S <> ''then
+    Result := True;
 end;
 
 procedure SpIDESearchPathRegKey(IDE: TSpIDEType; out Key, Name: string; CPPBuilderPath: Boolean; APlatform: TSpPlatform = pltWin32);
@@ -943,30 +929,19 @@ begin
 
   // [IDE-Change]
   Key := IDETypes[IDE].IDERegistryPath;
-  if CPPBuilderPath and (IDE >= ideDelphi2006) then begin
-    if IDE = ideDelphi2006 then begin
-      // '\CppPaths\SearchPath' with no space in the middle for C++Builder 2006
-      Key := Key + '\CppPaths';
-      Name := 'SearchPath';
-    end
-    else begin
-      Name := 'LibraryPath';
-      if (IDE >= ideDelphiXE2) and (APlatform = pltWin32) then
-        Key := Key + '\C++\Paths\Win32' // '\C++\Paths\Win32\LibraryPath' with no space in the middle for C++Builder XE2 and above
-      else if (IDE >= ideDelphiXE2) and (APlatform = pltWin64) then
-        Key := Key + '\C++\Paths\Win64' // '\C++\Paths\Win32\LibraryPath' with no space in the middle for C++Builder XE2 and above
-      else
-        Key := Key + '\C++\Paths';   // '\C++\Paths\LibraryPath' with no space in the middle for C++Builder 2009 and above
-    end;
+  if CPPBuilderPath then begin
+    Name := 'LibraryPath';
+    if APlatform = pltWin32 then
+      Key := Key + '\C++\Paths\Win32' // '\C++\Paths\Win32\LibraryPath' with no space in the middle for C++Builder XE2 and above
+    else if APlatform = pltWin64 then
+      Key := Key + '\C++\Paths\Win64'; // '\C++\Paths\Win32\LibraryPath' with no space in the middle for C++Builder XE2 and above
   end
   else begin
     Name := 'Search Path';
-    if (IDE >= ideDelphiXE2) and (APlatform = pltWin32) then
+    if APlatform = pltWin32 then
       Key := Key + '\Library\Win32'
-    else if (IDE >= ideDelphiXE2) and (APlatform = pltWin64) then
-      Key := Key + '\Library\Win64'
-    else
-      Key := Key + '\Library';
+    else if APlatform = pltWin64 then
+      Key := Key + '\Library\Win64';
   end;
 end;
 
@@ -1001,42 +976,37 @@ begin
       end;
 
     // Add the directory to the C++Builder search path registry entry
-    if IDE >= ideDelphi2006 then begin
-      S := SpIDESearchPath(IDE, True);
-      if (S <> '') and (SourcesL[I] <> '') then
-        if not SpStringSearch(S, SourcesL[I]) then begin
-          if S[Length(S)] <> ';' then
-            S := S + ';';
-          S := S + SourcesL[I];
-          SpIDESearchPathRegKey(IDE, Key, Name, True);
-          SpWriteRegValue(Key, Name, S)
-        end;
-    end;
+    S := SpIDESearchPath(IDE, True);
+    if (S <> '') and (SourcesL[I] <> '') then
+      if not SpStringSearch(S, SourcesL[I]) then begin
+        if S[Length(S)] <> ';' then
+          S := S + ';';
+        S := S + SourcesL[I];
+        SpIDESearchPathRegKey(IDE, Key, Name, True);
+        SpWriteRegValue(Key, Name, S)
+      end;
 
     // Add Win64 search paths
-    if IDE >= ideDelphiXE2 then
-    begin
-      S := SpIDESearchPath(IDE, False, pltWin64);
-      if (S <> '') and (SourcesL[I] <> '') then
-        if not SpStringSearch(S, SourcesL[I]) then begin
-          if S[Length(S)] <> ';' then
-            S := S + ';';
-          S := S + SourcesL[I];
-          SpIDESearchPathRegKey(IDE, Key, Name, False, pltWin64);
-          SpWriteRegValue(Key, Name, S)
-        end;
+    S := SpIDESearchPath(IDE, False, pltWin64);
+    if (S <> '') and (SourcesL[I] <> '') then
+      if not SpStringSearch(S, SourcesL[I]) then begin
+        if S[Length(S)] <> ';' then
+          S := S + ';';
+        S := S + SourcesL[I];
+        SpIDESearchPathRegKey(IDE, Key, Name, False, pltWin64);
+        SpWriteRegValue(Key, Name, S)
+      end;
 
-      // Add the directory to the C++Builder search path registry entry
-      S := SpIDESearchPath(IDE, True, pltWin64);
-      if (S <> '') and (SourcesL[I] <> '') then
-        if not SpStringSearch(S, SourcesL[I]) then begin
-          if S[Length(S)] <> ';' then
-            S := S + ';';
-          S := S + SourcesL[I];
-          SpIDESearchPathRegKey(IDE, Key, Name, True, pltWin64);
-          SpWriteRegValue(Key, Name, S)
-        end;
-    end;
+    // Add the directory to the C++Builder search path registry entry
+    S := SpIDESearchPath(IDE, True, pltWin64);
+    if (S <> '') and (SourcesL[I] <> '') then
+      if not SpStringSearch(S, SourcesL[I]) then begin
+        if S[Length(S)] <> ';' then
+          S := S + ';';
+        S := S + SourcesL[I];
+        SpIDESearchPathRegKey(IDE, Key, Name, True, pltWin64);
+        SpWriteRegValue(Key, Name, S)
+      end;
   end;
 end;
 
@@ -1046,26 +1016,24 @@ var
 begin
   Result := '';
   // [IDE-Change]
-  if IDE >= ideDelphi2007 then begin
-    // The BDSCOMMONDIR can be pointing to a different directory according to how you install Delphi:
-    // If you choose All Users during installation: "All Users\Documents", or "Public\Documents" on Vista
-    // If you choose Just Me during installation: My Documents, or Documents on Vista
+  // The BDSCOMMONDIR can be pointing to a different directory according to how you install Delphi:
+  // If you choose All Users during installation: "All Users\Documents", or "Public\Documents" on Vista
+  // If you choose Just Me during installation: My Documents, or Documents on Vista
 
-    // XE6 and up starts from 14 (13 doesn't exist), and the dir name is Embarcadero\Studio
-    if IDE >= ideDelphiXE6 then
-      S := 'Embarcadero\Studio\' // Embarcadero\Studio\14.0
-    else
-      S := 'RAD Studio\'; // RAD Studio\5.0
-    S := S + IDETypes[IDE].IDERADStudioVersion;
+  // XE6 and up starts from 14 (13 doesn't exist), and the dir name is Embarcadero\Studio
+  if IDE >= ideDelphiXE6 then
+    S := 'Embarcadero\Studio\' // Embarcadero\Studio\14.0
+  else
+    S := 'RAD Studio\'; // RAD Studio\5.0
+  S := S + IDETypes[IDE].IDERADStudioVersion;
 
-    // First try to find it on All Users
-    Result := SpGetCommonDocumentsFolder + S;
-    if not DirectoryExists(Result) then begin
-      // If it's not found try it on My Documents
-      Result := SpGetMyDocumentsFolder + S;
-      if not DirectoryExists(Result) then
-        Result := '';
-    end;
+  // First try to find it on All Users
+  Result := SpGetCommonDocumentsFolder + S;
+  if not DirectoryExists(Result) then begin
+    // If it's not found try it on My Documents
+    Result := SpGetMyDocumentsFolder + S;
+    if not DirectoryExists(Result) then
+      Result := '';
   end;
 end;
 
@@ -1080,46 +1048,35 @@ var
 begin
   Result := '';
   // [IDE-Change]
-  if IDE >= ideDelphi2005 then begin
-    // $(BDSPROJECTSDIR) = ...\My Documents\Borland Studio Projects
-    // Unfortunately 'Borland Studio Projects' string is localized in the
-    // French, German and Japanese versions of the IDE.
-    // This macro can be overrided by adding a string value called
-    // 'DefaultProjectsDirectory' containing a different directory to:
-    // HKCU\Software\Borland\BDS\4.0\Globals
-    R := IDETypes[IDE].IDERegistryPath;
-    SpReadRegValue(R + '\Globals', 'DefaultProjectsDirectory', Result);
+  // $(BDSPROJECTSDIR) = ...\My Documents\Borland Studio Projects
+  // Unfortunately 'Borland Studio Projects' string is localized in the
+  // French, German and Japanese versions of the IDE.
+  // This macro can be overrided by adding a string value called
+  // 'DefaultProjectsDirectory' containing a different directory to:
+  // HKCU\Software\Borland\BDS\4.0\Globals
+  R := IDETypes[IDE].IDERegistryPath;
+  SpReadRegValue(R + '\Globals', 'DefaultProjectsDirectory', Result);
+  if not DirectoryExists(Result) then begin
+    // The IDE user can override it on the Environment Options menu,
+    // the value is stored on the 'BDSPROJECTSDIR' key name on:
+    // HKCU\Software\Borland\BDS\4.0\Environment Variables
+    SpReadRegValue(R + '\Environment Variables', 'BDSPROJECTSDIR', Result);
     if not DirectoryExists(Result) then begin
-      // The IDE user can override it on the Environment Options menu,
-      // the value is stored on the 'BDSPROJECTSDIR' key name on:
-      // HKCU\Software\Borland\BDS\4.0\Environment Variables
-      SpReadRegValue(R + '\Environment Variables', 'BDSPROJECTSDIR', Result);
-      if not DirectoryExists(Result) then begin
-        // Since BDSPROJECTSDIR is not defined in the registry we have to find it
-        // manually, looking for all the localized dir names.
-        MyDocs := SpGetMyDocumentsFolder;
-        if IDE in [ideDelphi2005, ideDelphi2006] then begin
-          // For older BDS check if it's My Documents\Borland Studio Projects
-          for I := 0 to High(DirArrayBDS) do begin
-            Result := MyDocs + DirArrayBDS[I];
-            if DirectoryExists(Result) then Break;
-          end;
-        end
-        else begin
-          // For XE6 or newer versions check if it's My Documents\Embarcadero\Studio\Projects
-          // or My Documents\RAD Studio\Projects
-          for I := 0 to High(DirArrayRAD) do begin
-            if IDE >= ideDelphiXE6 then
-              Result := MyDocs + 'Embarcadero\Studio\' + DirArrayRAD[I]
-            else
-              Result := MyDocs + 'RAD Studio\' + DirArrayRAD[I];
-            if DirectoryExists(Result) then Break;
-          end;
-        end;
-
-        if not DirectoryExists(Result) then
-          Result := '';
+      // Since BDSPROJECTSDIR is not defined in the registry we have to find it
+      // manually, looking for all the localized dir names.
+      MyDocs := SpGetMyDocumentsFolder;
+      // For XE6 or newer versions check if it's My Documents\Embarcadero\Studio\Projects
+      // or My Documents\RAD Studio\Projects
+      for I := 0 to High(DirArrayRAD) do begin
+        if IDE >= ideDelphiXE6 then
+          Result := MyDocs + 'Embarcadero\Studio\' + DirArrayRAD[I]
+        else
+          Result := MyDocs + 'RAD Studio\' + DirArrayRAD[I];
+        if DirectoryExists(Result) then Break;
       end;
+
+      if not DirectoryExists(Result) then
+        Result := '';
     end;
   end;
 end;
@@ -1151,19 +1108,15 @@ begin
     IDEDir := SpIDEDir(IDE);
     I := L.IndexOfName('Delphi');
     if I = -1 then L.Values['Delphi'] := IDEDir;
-    if IDE >= ideDelphi2005 then begin
-      I := L.IndexOfName('BDS');
-      if I = -1 then L.Values['BDS'] := IDEDir;
-      BDSProjectsDir := SpIDEBDSProjectsDir(IDE);
-      if BDSProjectsDir <> '' then
-        L.Values['BDSPROJECTSDIR'] := BDSProjectsDir;
+    I := L.IndexOfName('BDS');
+    if I = -1 then L.Values['BDS'] := IDEDir;
+    BDSProjectsDir := SpIDEBDSProjectsDir(IDE);
+    if BDSProjectsDir <> '' then
+      L.Values['BDSPROJECTSDIR'] := BDSProjectsDir;
 
-      if IDE >= ideDelphi2007 then begin
-        BDSCommonDir := SpIDEBDSCommonDir(IDE);
-        if BDSCommonDir <> '' then
-          L.Values['BDSCOMMONDIR'] := BDSCommonDir;
-      end;
-    end;
+    BDSCommonDir := SpIDEBDSCommonDir(IDE);
+    if BDSCommonDir <> '' then
+      L.Values['BDSCOMMONDIR'] := BDSCommonDir;
 
     // Replace all
     for I := 0 to L.Count - 1 do
@@ -1321,26 +1274,18 @@ begin
         L.Add('-R' + S);
       end;
       // BPL Output
-      if IDE >= ideDelphiXE2 then
-        SpReadRegValue(R + '\Library\Win32', 'Package DPL Output', S)
-      else
-        SpReadRegValue(R + '\Library', 'Package DPL Output', S);
+      SpReadRegValue(R + '\Library\Win32', 'Package DPL Output', S);
       S := SpIDEExpandMacros(S, IDE);
       L.Add('-LE"' + S + '"');
       BPLDir := IncludeTrailingPathDelimiter(S);
       // DCP Output
-      if IDE >= ideDelphiXE2 then
-        SpReadRegValue(R + '\Library\Win32', 'Package DCP Output', S)
-      else
-        SpReadRegValue(R + '\Library', 'Package DCP Output', S);
+      SpReadRegValue(R + '\Library\Win32', 'Package DCP Output', S);
       S := SpIDEExpandMacros(S, IDE);
       L.Add('-LN"' + S + '"');
       // BPI Output for the compiled packages, required for C++Builder 2006 and above
-      if IDE >= ideDelphi2006 then
-        L.Add('-NB"' + S + '"');
+      L.Add('-NB"' + S + '"');
       // Unit namespaces for Delphi XE2:
-      if IDE >= ideDelphiXE2 then
-        L.Add('-NSSystem.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;Winapi');
+      L.Add('-NSSystem.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;Winapi');
       // Includes, dcc32.exe accepts Includes as a semicolon separated string
       // enclosed by double quotes, e.g. "C:\dir1;C:\dir2;C:\dir3"
       S := '';
@@ -1357,9 +1302,8 @@ begin
       // Add -JL compiler switch to make Hpp files required for C++Builder 2006 and above
       // This switch is undocumented:
       // http://groups.google.com/group/borland.public.cppbuilder.ide/browse_thread/thread/456bece4c5665459/0c4c61ecec179ca8
-      if IDE >= ideDelphi2006 then
-        if SpIDEPersonalityInstalled(IDE, persCPPBuilder) then
-          L.Add('-JL');
+      if SpIDEPersonalityInstalled(IDE, persCPPBuilder) then
+        L.Add('-JL');
 
       L.SaveToFile(DCCConfig);
     finally
@@ -1466,7 +1410,7 @@ begin
     S := F.ReadString(rvOptionsIniSection, rvMinimumIDE, '');
     FMinimumIDE := SpStringToIDEType(S);
     if FMinimumIDE = ideNone then
-      FMinimumIDE := ideDelphi7;
+      FMinimumIDE := ideDelphiXE2;
 
     F.ReadSections(L);
     for I := 0 to L.Count - 1 do
@@ -1812,23 +1756,21 @@ begin
           Log.Add(Format(SLogFinished, [Secs]));
 
           // [IDE-Change]
-          if IDE >= ideDelphi2007 then begin
-            // From the Delphi 2007 readme:
-            // If you your component installer updates paths in Delphi's registry to include paths
-            // to your components, you should add the following registry key:
-            // HKCU\Software\Borland\BDS\5.0\Globals\ForceEnvOptionsUpdate with a string value "1"
-            // After adding this registry key the next time the IDE is run, it will update
-            // the EnvOptions.proj file on disk to include the paths that your installer added.
-            // The EnvOptions.proj file is the mechanism by which the new MSBuild build engine
-            // in the IDE is able to include paths that are listed on the Library - Win32 page in
-            // the IDE's Tools > Options dialog.
-            // The EnvOptions.proj file is in:
-            // XP: C:\Documents and Settings\...\AppData\Borland\BDS\5.0
-            //     C:\Documents and Settings\...\AppData\CodeGear\BDS\6.0
-            // Vista/7/8: C:\Users\...\AppData\Roaming\Borland\BDS\5.0
-            //            C:\Users\...\AppData\Roaming\Embarcadero\BDS\15.0
-            SpWriteRegValue(IDETypes[IDE].IDERegistryPath + '\Globals', 'ForceEnvOptionsUpdate', '1');
-          end;
+          // From the Delphi 2007 readme:
+          // If you your component installer updates paths in Delphi's registry to include paths
+          // to your components, you should add the following registry key:
+          // HKCU\Software\Borland\BDS\5.0\Globals\ForceEnvOptionsUpdate with a string value "1"
+          // After adding this registry key the next time the IDE is run, it will update
+          // the EnvOptions.proj file on disk to include the paths that your installer added.
+          // The EnvOptions.proj file is the mechanism by which the new MSBuild build engine
+          // in the IDE is able to include paths that are listed on the Library - Win32 page in
+          // the IDE's Tools > Options dialog.
+          // The EnvOptions.proj file is in:
+          // XP: C:\Documents and Settings\...\AppData\Borland\BDS\5.0
+          //     C:\Documents and Settings\...\AppData\CodeGear\BDS\6.0
+          // Vista/7/8: C:\Users\...\AppData\Roaming\Borland\BDS\5.0
+          //            C:\Users\...\AppData\Roaming\Embarcadero\BDS\15.0
+          SpWriteRegValue(IDETypes[IDE].IDERegistryPath + '\Globals', 'ForceEnvOptionsUpdate', '1');
 
           Result := True;
         end;
