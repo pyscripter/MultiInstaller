@@ -239,6 +239,7 @@ type
     Destination: string;
     SearchPath: string;
     Includes: string;
+    NameSpaces: string;        // -NS
     Installable: TSpInstallType;
     LibSuffix : string;
     GroupIndex: Integer;
@@ -321,7 +322,7 @@ function SpIDEExpandMacros(S: string; IDE: TSpIDEType;
 { Delphi Packages }
 function SpGetPackageOptions(PackageFilename, LibSuffix, BPLDir: string; out RunTime, DesignTime: Boolean; out BPLFilename, Description: string): Boolean;
 function SpCompilePackage(PackageFilename: string; IDE: TSpIDEType; SourcesL,
-    IncludesL, Log: TStrings; LibSuffix: string; TempDir: string = '';
+    IncludesL, NameSpacesL, Log: TStrings; LibSuffix: string; TempDir: string = '';
     APlatform: TSpPlatform = pltWin32): Boolean;
 function SpRegisterPackage(PackageFilename, LibSuffix, BPLDir: string; IDE:
     TSpIDEType; Log: TStrings; APlatform: TSpPlatform = pltWin32): Boolean;
@@ -343,6 +344,7 @@ const
   rvSearchPath = 'SearchPath';
   rvGroupIndex = 'GroupIndex';
   rvIncludes = 'Includes';
+  rvNameSpaces = 'NameSpaces';
   rvInstallable = 'Installable';
   rvLibSuffix = 'LibSuffix';
   rvExecuteIniPrefix = 'Execute';
@@ -1218,7 +1220,7 @@ begin
 end;
 
 function SpCompilePackage(PackageFilename: string; IDE: TSpIDEType;
-    SourcesL, IncludesL, Log: TStrings; LibSuffix: string; TempDir: string =
+    SourcesL, IncludesL, NameSpacesL, Log: TStrings; LibSuffix: string; TempDir: string =
     ''; APlatform: TSpPlatform = pltWin32): Boolean;
 // PackageFilename = full path of the package, e.g. 'C:\MyCompos\Compo\Packages\D7Runtime.dpk
 // IDE = IDE version to compile with
@@ -1230,9 +1232,9 @@ function SpCompilePackage(PackageFilename: string; IDE: TSpIDEType;
 
 var
   CommandLine, WorkDir, BPLDir, DOSOutput, DCCConfig: string;
-  L: TStringList;
+  L, T: TStringList;
   I: Integer;
-  DCC, S, R: string; // Auxiliary strings
+  DCC, S, R, S1: string; // Auxiliary strings
   EmptyRes, ResFile : string;
 begin
   Result := False;
@@ -1294,8 +1296,23 @@ begin
     L.Add('-LN"' + S + '"');
     // BPI Output for the compiled packages, required for C++Builder 2006 and above
     L.Add('-NB"' + S + '"');
+
     // Unit namespaces for Delphi XE2:
-    L.Add('-NSSystem.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;Winapi');
+    T:= TStringList.Create(#0,';');
+    try
+      T.DelimitedText := 'System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;Bde;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;System;Xml;Data;Datasnap;Web;Soap;Winapi';
+      for I := 0 to NameSpacesL.Count-1 do begin
+         S1 := Trim(NameSpacesL[i]);
+         if S1='' then Continue;
+         if T.IndexOf(S1) < 0 then begin
+            T.Add(S1);
+         end;
+      end;
+      L.Add('-NS' + T.DelimitedText);
+    finally
+      T.Free;
+    end;
+
     // Includes, dcc32.exe accepts Includes as a semicolon separated string
     // enclosed by double quotes, e.g. "C:\dir1;C:\dir2;C:\dir3"
     S := '';
@@ -1450,6 +1467,7 @@ begin
           if Aux > Ord(High(TSpInstallType)) then Aux := 1;
           Entry.Installable := TSpInstallType(Aux);
           Entry.Includes := F.ReadString(L[I], rvIncludes, '');
+          Entry.NameSpaces := F.ReadString(L[I], rvNameSpaces, '');
 
           // [IDE-Change]
           if Entry.Installable = sitInstallable then begin
@@ -1558,7 +1576,7 @@ var
   TempDir: string;
   I, J: integer;
   Item: TSpComponentPackage;
-  SourcesL, CompileL, IncludesL: TStringList;
+  SourcesL, CompileL, IncludesL, NameSpacesL: TStringList;
   Aux1, Aux2: string; // Auxiliary strings
   LibSuffix : string;
 begin
@@ -1580,6 +1598,7 @@ begin
 
   CompileL := TStringList.Create;
   IncludesL := TStringList.Create;
+  NameSpacesL := TStringList.Create;
   SourcesL := TStringList.Create;
   try
     for I := 0 to Count - 1 do begin
@@ -1621,6 +1640,7 @@ begin
 
         // Expand Includes
         IncludesL.CommaText := StringReplace(Item.Includes, rvBaseFolder, ExcludeTrailingPathDelimiter(BaseFolder), [rfReplaceAll, rfIgnoreCase]);
+        NameSpacesL.CommaText := StringReplace(Item.NameSpaces, ';', ',', [rfReplaceAll]);
 
         if Item.LibSuffix <> '' then
           LibSuffix := Format(Item.LibSuffix, [Copy(IDETypes[IDE].IDEVersion,2,3)])
@@ -1630,7 +1650,7 @@ begin
         // Compile and Install
         for J := 0 to CompileL.Count - 1 do
         begin
-          if not SpCompilePackage(CompileL[J], IDE, SourcesL, IncludesL, Log,
+          if not SpCompilePackage(CompileL[J], IDE, SourcesL, IncludesL, NameSpacesL, Log,
             LibSuffix, TempDir, pltWin32)
           then
             Exit;
@@ -1639,7 +1659,7 @@ begin
           // Starting from Delphi 13 compile also design packages
           if not SpIsDesignTimePackage(CompileL[J]) or (IDE >= ideDelphiFlorence) then
           begin
-            if not SpCompilePackage(CompileL[J], IDE, SourcesL, IncludesL, Log,
+            if not SpCompilePackage(CompileL[J], IDE, SourcesL, IncludesL, NameSpacesL, Log,
               LibSuffix, TempDir, pltWin64)
             then
               Exit;
@@ -1659,6 +1679,7 @@ begin
   finally
     CompileL.Free;
     IncludesL.Free;
+    NameSpacesL.Free;
     SourcesL.Free;
     SpFileOperation(TempDir, '', FO_DELETE);
   end;
